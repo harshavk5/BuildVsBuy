@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoring Platform Replacement — Architecture Review</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=IBM+Plex+Serif:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c23;
+    --border: #1e2430;
+    --border2: #2a3040;
+    --text: #c8d0e0;
+    --text-dim: #6a7590;
+    --text-bright: #e8eef8;
+    --accent: #2d7dd2;
+    --accent2: #1a5fa8;
+    --warn: #e6a817;
+    --danger: #d04040;
+    --success: #2ea86a;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --serif: 'IBM Plex Serif', serif;
+  }
+
+- { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+background: var(–bg);
+color: var(–text);
+font-family: var(–sans);
+font-size: 14px;
+line-height: 1.7;
+font-weight: 300;
+}
+
+/* HEADER */
+.doc-header {
+border-bottom: 1px solid var(–border2);
+padding: 48px 64px 36px;
+position: relative;
+overflow: hidden;
+}
+.doc-header::before {
+content: ‘’;
+position: absolute;
+top: 0; left: 0; right: 0;
+height: 3px;
+background: linear-gradient(90deg, var(–accent2), var(–accent), #5ba8f0, var(–accent2));
+}
+.doc-header::after {
+content: ‘CONFIDENTIAL — ARCHITECTURE REVIEW’;
+position: absolute;
+top: 16px; right: 64px;
+font-family: var(–mono);
+font-size: 10px;
+color: var(–text-dim);
+letter-spacing: 0.15em;
+}
+.doc-header .classification {
+font-family: var(–mono);
+font-size: 10px;
+color: var(–warn);
+letter-spacing: 0.15em;
+margin-bottom: 20px;
+}
+.doc-header h1 {
+font-family: var(–serif);
+font-size: 32px;
+font-weight: 300;
+color: var(–text-bright);
+line-height: 1.25;
+max-width: 680px;
+margin-bottom: 12px;
+}
+.doc-header .subtitle {
+font-size: 13px;
+color: var(–text-dim);
+font-weight: 400;
+}
+.meta-grid {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 0;
+margin-top: 32px;
+border: 1px solid var(–border);
+max-width: 680px;
+}
+.meta-item {
+padding: 12px 16px;
+border-right: 1px solid var(–border);
+}
+.meta-item:last-child { border-right: none; }
+.meta-label {
+font-family: var(–mono);
+font-size: 9px;
+color: var(–text-dim);
+letter-spacing: 0.12em;
+text-transform: uppercase;
+margin-bottom: 4px;
+}
+.meta-value {
+font-family: var(–mono);
+font-size: 12px;
+color: var(–text-bright);
+font-weight: 500;
+}
+
+/* LAYOUT */
+.doc-body {
+display: grid;
+grid-template-columns: 220px 1fr;
+min-height: calc(100vh - 200px);
+}
+
+/* SIDEBAR NAV */
+.sidebar {
+border-right: 1px solid var(–border);
+padding: 32px 0;
+position: sticky;
+top: 0;
+height: 100vh;
+overflow-y: auto;
+}
+.nav-section-label {
+font-family: var(–mono);
+font-size: 9px;
+color: var(–text-dim);
+letter-spacing: 0.15em;
+text-transform: uppercase;
+padding: 8px 24px 4px;
+margin-top: 16px;
+}
+.nav-section-label:first-child { margin-top: 0; }
+.nav-item {
+display: block;
+padding: 7px 24px;
+font-size: 12px;
+color: var(–text-dim);
+text-decoration: none;
+border-left: 2px solid transparent;
+transition: all 0.15s;
+cursor: pointer;
+}
+.nav-item:hover {
+color: var(–text);
+border-left-color: var(–accent);
+background: rgba(45, 125, 210, 0.05);
+}
+.nav-item.active {
+color: var(–accent);
+border-left-color: var(–accent);
+background: rgba(45, 125, 210, 0.08);
+}
+
+/* CONTENT */
+.content {
+padding: 48px 64px;
+max-width: 900px;
+}
+
+section {
+margin-bottom: 64px;
+scroll-margin-top: 32px;
+}
+
+.section-tag {
+font-family: var(–mono);
+font-size: 10px;
+color: var(–accent);
+letter-spacing: 0.12em;
+text-transform: uppercase;
+margin-bottom: 8px;
+}
+
+h2 {
+font-family: var(–serif);
+font-size: 22px;
+font-weight: 300;
+color: var(–text-bright);
+margin-bottom: 20px;
+padding-bottom: 12px;
+border-bottom: 1px solid var(–border);
+}
+
+h3 {
+font-family: var(–sans);
+font-size: 13px;
+font-weight: 600;
+color: var(–text-bright);
+margin: 24px 0 10px;
+text-transform: uppercase;
+letter-spacing: 0.06em;
+}
+
+h4 {
+font-family: var(–sans);
+font-size: 13px;
+font-weight: 500;
+color: var(–warn);
+margin: 20px 0 8px;
+}
+
+p {
+margin-bottom: 14px;
+font-weight: 300;
+color: var(–text);
+}
+
+strong {
+color: var(–text-bright);
+font-weight: 500;
+}
+
+/* CALLOUT BOXES */
+.callout {
+padding: 16px 20px;
+border-left: 3px solid;
+margin: 20px 0;
+font-size: 13px;
+}
+.callout-rec {
+border-color: var(–success);
+background: rgba(46, 168, 106, 0.06);
+}
+.callout-warn {
+border-color: var(–warn);
+background: rgba(230, 168, 23, 0.06);
+}
+.callout-danger {
+border-color: var(–danger);
+background: rgba(208, 64, 64, 0.06);
+}
+.callout-info {
+border-color: var(–accent);
+background: rgba(45, 125, 210, 0.06);
+}
+.callout-label {
+font-family: var(–mono);
+font-size: 9px;
+letter-spacing: 0.15em;
+text-transform: uppercase;
+margin-bottom: 6px;
+font-weight: 600;
+}
+.callout-rec .callout-label { color: var(–success); }
+.callout-warn .callout-label { color: var(–warn); }
+.callout-danger .callout-label { color: var(–danger); }
+.callout-info .callout-label { color: var(–accent); }
+
+/* COMPARISON TABLE */
+.matrix-wrap {
+overflow-x: auto;
+margin: 20px 0;
+border: 1px solid var(–border);
+}
+table {
+width: 100%;
+border-collapse: collapse;
+font-size: 12px;
+}
+thead tr {
+background: var(–surface2);
+border-bottom: 1px solid var(–border2);
+}
+th {
+padding: 10px 14px;
+text-align: left;
+font-family: var(–mono);
+font-size: 10px;
+letter-spacing: 0.08em;
+color: var(–text-dim);
+font-weight: 500;
+white-space: nowrap;
+}
+th:first-child { color: var(–text-bright); }
+td {
+padding: 9px 14px;
+border-bottom: 1px solid var(–border);
+vertical-align: top;
+line-height: 1.5;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+.td-crit { font-weight: 400; color: var(–text-bright); font-size: 12px; }
+
+/* STATUS BADGES */
+.badge {
+display: inline-block;
+padding: 2px 8px;
+border-radius: 2px;
+font-family: var(–mono);
+font-size: 10px;
+font-weight: 500;
+letter-spacing: 0.05em;
+white-space: nowrap;
+}
+.badge-green { background: rgba(46,168,106,0.15); color: #3fcf85; border: 1px solid rgba(46,168,106,0.3); }
+.badge-yellow { background: rgba(230,168,23,0.15); color: #f0b830; border: 1px solid rgba(230,168,23,0.3); }
+.badge-red { background: rgba(208,64,64,0.15); color: #e85555; border: 1px solid rgba(208,64,64,0.3); }
+.badge-blue { background: rgba(45,125,210,0.15); color: #5ba8f0; border: 1px solid rgba(45,125,210,0.3); }
+.badge-dim { background: rgba(106,117,144,0.15); color: var(–text-dim); border: 1px solid rgba(106,117,144,0.2); }
+
+/* ARCH DIAGRAM */
+.arch-diagram {
+background: var(–surface);
+border: 1px solid var(–border2);
+padding: 32px;
+font-family: var(–mono);
+font-size: 11px;
+line-height: 2;
+color: var(–text);
+overflow-x: auto;
+margin: 20px 0;
+white-space: pre;
+}
+.arch-layer {
+background: var(–surface2);
+border: 1px solid var(–border2);
+padding: 16px 20px;
+margin: 12px 0;
+border-left: 3px solid var(–accent);
+}
+.arch-layer-title {
+font-family: var(–mono);
+font-size: 10px;
+color: var(–accent);
+letter-spacing: 0.12em;
+text-transform: uppercase;
+margin-bottom: 10px;
+}
+.arch-layer p { font-size: 12px; margin-bottom: 6px; }
+
+/* PHASE BLOCKS */
+.phase-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 16px;
+margin: 20px 0;
+}
+.phase-block {
+background: var(–surface);
+border: 1px solid var(–border);
+padding: 20px;
+position: relative;
+}
+.phase-num {
+font-family: var(–mono);
+font-size: 32px;
+font-weight: 600;
+color: var(–border2);
+position: absolute;
+top: 12px;
+right: 16px;
+line-height: 1;
+}
+.phase-title {
+font-size: 11px;
+font-weight: 600;
+color: var(–accent);
+text-transform: uppercase;
+letter-spacing: 0.1em;
+margin-bottom: 6px;
+font-family: var(–mono);
+}
+.phase-duration {
+font-family: var(–mono);
+font-size: 10px;
+color: var(–warn);
+margin-bottom: 10px;
+}
+.phase-block ul {
+list-style: none;
+padding: 0;
+}
+.phase-block li {
+font-size: 12px;
+color: var(–text);
+padding: 3px 0;
+padding-left: 14px;
+position: relative;
+}
+.phase-block li::before {
+content: ‘—’;
+position: absolute;
+left: 0;
+color: var(–text-dim);
+}
+
+/* RISK TABLE */
+.risk-row td:first-child { font-family: var(–mono); font-size: 11px; }
+
+/* INLINE CODE */
+code {
+font-family: var(–mono);
+font-size: 11px;
+background: var(–surface2);
+padding: 1px 6px;
+border: 1px solid var(–border);
+color: #7dd3b8;
+}
+
+/* SCORE ROW */
+.score-bar {
+display: flex;
+align-items: center;
+gap: 8px;
+font-size: 11px;
+}
+.score-fill {
+height: 4px;
+background: var(–accent);
+border-radius: 2px;
+min-width: 4px;
+}
+.score-val {
+font-family: var(–mono);
+font-size: 10px;
+color: var(–text-dim);
+min-width: 28px;
+}
+
+/* DIVIDER */
+.divider {
+border: none;
+border-top: 1px solid var(–border);
+margin: 32px 0;
+}
+
+/* FOOTER */
+.doc-footer {
+border-top: 1px solid var(–border);
+padding: 24px 64px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+font-family: var(–mono);
+font-size: 10px;
+color: var(–text-dim);
+}
+
+ul.doc-list {
+padding-left: 0;
+list-style: none;
+margin: 12px 0;
+}
+ul.doc-list li {
+padding: 4px 0 4px 18px;
+position: relative;
+font-size: 13px;
+}
+ul.doc-list li::before {
+content: ‘›’;
+position: absolute;
+left: 4px;
+color: var(–accent);
+font-weight: 600;
+}
+
+ol.doc-list {
+padding-left: 0;
+list-style: none;
+counter-reset: doc-counter;
+margin: 12px 0;
+}
+ol.doc-list li {
+counter-increment: doc-counter;
+padding: 4px 0 4px 32px;
+position: relative;
+font-size: 13px;
+}
+ol.doc-list li::before {
+content: counter(doc-counter, decimal-leading-zero);
+position: absolute;
+left: 0;
+font-family: var(–mono);
+font-size: 10px;
+color: var(–text-dim);
+top: 7px;
+}
+
+@media (max-width: 900px) {
+.doc-body { grid-template-columns: 1fr; }
+.sidebar { display: none; }
+.content { padding: 24px; }
+.doc-header { padding: 32px 24px 24px; }
+.phase-grid { grid-template-columns: 1fr; }
+.meta-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+</head>
+<body>
+
+<header class="doc-header">
+  <div class="classification">INTERNAL — ARCHITECTURE REVIEW BOARD</div>
+  <h1>Open-Source Monitoring Platform Replacement<br>for Large-Scale Banking Infrastructure</h1>
+  <div class="subtitle">Replacing BMC TrueSight / Helix Operations Management across 60k Unix/Linux servers</div>
+  <div class="meta-grid">
+    <div class="meta-item">
+      <div class="meta-label">Scope</div>
+      <div class="meta-value">60k+ Servers</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Regions</div>
+      <div class="meta-value">UK · US · HK · MX</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">DB Instances</div>
+      <div class="meta-value">10k+</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Custom Policies</div>
+      <div class="meta-value">~38k</div>
+    </div>
+  </div>
+</header>
+
+<div class="doc-body">
+  <nav class="sidebar">
+    <div class="nav-section-label">Document</div>
+    <a class="nav-item active" href="#exec-summary">Executive Summary</a>
+    <a class="nav-item" href="#candidates">Candidate Assessment</a>
+
+```
+<div class="nav-section-label">Recommendation</div>
+<a class="nav-item" href="#recommendation">Stack Recommendation</a>
+<a class="nav-item" href="#architecture">Target Architecture</a>
+<a class="nav-item" href="#custom-monitoring">Custom Monitoring Depth</a>
+
+<div class="nav-section-label">Analysis</div>
+<a class="nav-item" href="#matrix">Comparison Matrix</a>
+<a class="nav-item" href="#day2">Patching &amp; Day-2 Ops</a>
+<a class="nav-item" href="#kubernetes">Kubernetes Strategy</a>
+
+<div class="nav-section-label">Delivery</div>
+<a class="nav-item" href="#migration">Migration Strategy</a>
+<a class="nav-item" href="#risks">Risks &amp; Mitigations</a>
+<a class="nav-item" href="#decision">Decision Rationale</a>
+```
+
+  </nav>
+
+  <main class="content">
+
+```
+<!-- EXEC SUMMARY -->
+<section id="exec-summary">
+  <div class="section-tag">Section 01</div>
+  <h2>Executive Summary</h2>
+
+  <div class="callout callout-rec">
+    <div class="callout-label">Primary Recommendation</div>
+    <strong>Prometheus + Alertmanager + Grafana (PAG Stack)</strong> — deployed with a tiered, federated architecture — is the recommended open-source foundation for replacing BMC TrueSight / Helix at this scale. This is not a single-product swap. It is a platform composition that satisfies functional requirements, is deployable on Unix/Linux only, has a mature commercial support ecosystem, and extends cleanly to Kubernetes.
+  </div>
+
+  <p>No single open-source product offers a direct one-to-one functional replacement for BMC Helix Operations Management across 60,000 Unix/Linux servers with 38,000 custom policies. The realistic replacement is a curated stack, not a product.</p>
+
+  <p>The recommended stack is:</p>
+  <ul class="doc-list">
+    <li><strong>Prometheus</strong> — core metrics collection, threshold evaluation, and alerting rules engine</li>
+    <li><strong>Grafana Alloy (formerly Grafana Agent)</strong> — lightweight agent for log and metric forwarding on each host</li>
+    <li><strong>Loki</strong> — structured log aggregation replacing Patrol log KM functionality</li>
+    <li><strong>Alertmanager</strong> — alert deduplication, grouping, silencing, and GMOM/ITSM routing</li>
+    <li><strong>Grafana</strong> — unified observability frontend, dashboarding, and on-call routing</li>
+    <li><strong>Blackbox Exporter</strong> — ICMP/ping and protocol-level reachability monitoring</li>
+  </ul>
+
+  <p>Secondary components required for production-grade operation at this scale:</p>
+  <ul class="doc-list">
+    <li><strong>Thanos or Cortex</strong> — for long-term metric retention and multi-region query federation</li>
+    <li><strong>GitOps layer (Git + CI pipeline)</strong> — for versioned policy governance replacing informal change tracking</li>
+    <li><strong>Custom Exporter framework</strong> — for the ~700 Patrol scripting KM equivalents</li>
+  </ul>
+
+  <div class="callout callout-warn">
+    <div class="callout-label">Architectural Caution</div>
+    Any organisation expecting to lift-and-shift 38,000 policies from BMC Patrol into Prometheus without a structured migration programme will fail. The complexity is real, the mapping is not one-to-one, and the operational model will need to change. This document addresses each of those dimensions explicitly.
+  </div>
+
+  <h3>What This Delivers</h3>
+  <ul class="doc-list">
+    <li>A fully Unix/Linux-native monitoring platform with no Windows dependency</li>
+    <li>A federated, multi-region architecture that scales past the 60k server ceiling</li>
+    <li>Commercial support available via Grafana Labs enterprise licensing</li>
+    <li>A clear and unambiguous path to Kubernetes monitoring without introducing a second platform</li>
+    <li>Policy-as-code via Prometheus recording rules and alerting rules stored in Git</li>
+    <li>Event forwarding to existing GMOM/ITSM infrastructure via Alertmanager webhook routing</li>
+  </ul>
+</section>
+
+<!-- CANDIDATE ASSESSMENT -->
+<section id="candidates">
+  <div class="section-tag">Section 02</div>
+  <h2>Open-Source Candidate Assessment</h2>
+
+  <p>The following candidates were evaluated against the bank's stated requirements. Each is assessed on its own merits before the stack recommendation is made.</p>
+
+  <h3>Prometheus + Grafana Ecosystem</h3>
+  <p><strong>Architecture:</strong> Pull-based metrics collection. Prometheus scrapes exporters on each target. Alertmanager routes alert notifications. Grafana provides the observability frontend. Loki handles log aggregation. Alloy (formerly the Agent) provides a unified on-host collection component.</p>
+  <p><strong>Strengths at this scale:</strong> The most widely deployed open-source metrics platform globally. Mature federation and sharding support. The Grafana Labs commercial offering (Grafana Enterprise, Grafana Cloud) provides support contracts, training, and SLA-backed services. Kubernetes-native via kube-state-metrics and the Prometheus Operator. Alertmanager is purpose-built for enterprise alert routing.</p>
+  <p><strong>Realistic gaps:</strong> No native agent disconnect detection — requires custom dead man's switch alerting pattern. Script monitoring requires custom exporter wrappers. No built-in self-service portal — requires separate tooling or custom build. Metrics cardinality at 60k servers requires careful sharding design.</p>
+
+  <h3>Datadog Open-Source Components (Excluded)</h3>
+  <p>Datadog is a commercial SaaS platform. Its open-source agent is present but the platform itself is not open-source. Excluded from consideration.</p>
+
+  <h3>Zabbix</h3>
+  <p><strong>Architecture:</strong> Push and pull hybrid. Centralised Zabbix Server/Proxy architecture. Active and passive agents. Built-in database backend (MySQL/PostgreSQL). Native UI for host management, templates, and alerting.</p>
+  <p><strong>Strengths at this scale:</strong> Closer BMC-style operational model — template-based monitoring, agent-level config management, and a built-in web interface for operations teams. Agent disconnect detection is native. Script-based monitoring is a first-class citizen via Zabbix external scripts and UserParameters. Commercial support available through Zabbix LLC.</p>
+  <p><strong>Realistic gaps:</strong> Scaling beyond 20–30k actively monitored hosts requires significant proxy architecture investment. The Zabbix database becomes a bottleneck at high polling frequency and scale. Kubernetes integration is achievable but architecturally awkward — Zabbix was not built for ephemeral container workloads. UI is functional but does not offer modern observability experience. GitOps-native config management is an afterthought, not a design principle.</p>
+
+  <h3>Nagios / Icinga2</h3>
+  <p><strong>Architecture:</strong> Check-based monitoring. A scheduler dispatches checks to active agents or via NRPE/SSH. Results are processed and alerts fired on state transitions. Icinga2 is the modernised fork with native clustering.</p>
+  <p><strong>Strengths:</strong> Conceptually the closest model to Patrol-style check execution. Strong community and plugin ecosystem. Icinga2's Director module provides a database-backed configuration layer with a web interface for self-service-style operations.</p>
+  <p><strong>Realistic gaps:</strong> At 60,000 Unix/Linux servers, Nagios/Icinga2 check scheduling at 1–5 minute intervals will create scheduler overload without extreme tuning and horizontal cluster distribution. Not designed for 38,000 individual check configurations at this density. Kubernetes monitoring support is minimal and not fit for a unified platform strategy. Commercial support for Icinga2 (NETWAYS/Icinga GmbH) exists but is not enterprise-grade at banking scale.</p>
+
+  <h3>Victoria Metrics</h3>
+  <p><strong>Architecture:</strong> A high-performance, Prometheus-compatible time-series database and metrics aggregation engine. Not a full monitoring platform — purely a storage and query layer.</p>
+  <p><strong>Role in the stack:</strong> VictoriaMetrics is an important consideration as a <em>Prometheus storage backend replacement</em> in high-cardinality, high-ingest environments. At 60k servers, VictoriaMetrics outperforms Prometheus's native TSDB on storage efficiency and query performance, and offers better cluster mode stability than Thanos for some topologies. It does not replace the full stack but can replace Prometheus's storage tier.</p>
+
+  <h3>OpenTelemetry</h3>
+  <p><strong>Architecture:</strong> Vendor-neutral telemetry collection framework. Not a monitoring platform — a data pipeline standard. The OpenTelemetry Collector can ingest metrics, logs, and traces and forward to multiple backends.</p>
+  <p><strong>Role in the stack:</strong> OpenTelemetry Collector is worth introducing as a collection normalisation layer, particularly for database monitoring and future application monitoring. It does not replace Prometheus or Loki as backends but provides pipeline flexibility.</p>
+
+  <h3>Elastic Stack (ELK/EFK)</h3>
+  <p><strong>Architecture:</strong> Elasticsearch as storage, Logstash/Fluentd/Filebeat for collection, Kibana for visualisation. Elastic now ships a unified observability product (Elastic Observability).</p>
+  <p><strong>Strengths:</strong> Log monitoring is best-in-class. Full-text search across billions of log events is a genuine capability. Elastic Observability now includes metrics, traces, and uptime monitoring under one platform.</p>
+  <p><strong>Realistic gaps:</strong> Elasticsearch at 60k server scale requires substantial hardware investment and operational expertise. Kibana-based monitoring does not replicate the Patrol policy model. Alerting is less mature than Alertmanager. Elastic's open-source licensing (SSPL from v7.11 onwards) introduces licence risk in a financial services context. Commercial Elastic support is available but expensive at scale.</p>
+
+  <div class="callout callout-info">
+    <div class="callout-label">Assessment Outcome</div>
+    The <strong>Prometheus + Grafana ecosystem</strong> is the only candidate with a realistic path to covering all five review criteria at this scale while maintaining a single logical platform into Kubernetes. Zabbix is a credible alternative for organisations with lower Kubernetes priority. Neither Nagios/Icinga2 nor pure ELK is architecturally appropriate as the primary platform at 60k+ server scale in 2025 onwards.
+  </div>
+</section>
+
+<!-- RECOMMENDATION -->
+<section id="recommendation">
+  <div class="section-tag">Section 03</div>
+  <h2>Stack Recommendation</h2>
+
+  <h3>Recommended Stack: PAG-Extended</h3>
+  <p>The recommended target state is a composed stack across three logical tiers:</p>
+
+  <h4>Tier 1 — Collection (Per Host)</h4>
+  <ul class="doc-list">
+    <li><strong>Grafana Alloy</strong> — unified agent deployed on every managed Unix/Linux host. Replaces Patrol KM agents for log, metrics, and custom script output collection. Supports scraping local exporters, tailing log files, and executing scripts with output forwarding.</li>
+    <li><strong>Node Exporter</strong> — OS-level metrics (CPU, memory, disk, filesystem, kernel). Covers baseline LINUX-tag policy equivalent.</li>
+    <li><strong>Custom Exporter framework</strong> — thin shell-wrapper pattern to expose script output as Prometheus metrics (text file collector or HTTP exporter). Required for Patrol scripting KM equivalents.</li>
+    <li><strong>Database Exporters</strong> — <code>postgres_exporter</code>, <code>oracledb_exporter</code>, <code>mysqld_exporter</code> for the 10k+ DB instance coverage.</li>
+    <li><strong>Blackbox Exporter</strong> — ICMP ping monitoring. Deployed per-region, not per-host.</li>
+  </ul>
+
+  <h4>Tier 2 — Aggregation and Storage (Per Region)</h4>
+  <ul class="doc-list">
+    <li><strong>Prometheus (sharded)</strong> — regional scraping clusters. Federation or sharding via consistent hash or functional partitioning (OS vs DB vs application). Target: 3–5 Prometheus instances per region at this scale.</li>
+    <li><strong>Loki</strong> — regional log aggregation. Receives structured logs forwarded by Alloy agents. Provides log-based alerting equivalent to Patrol log KM.</li>
+    <li><strong>Thanos (or VictoriaMetrics Cluster)</strong> — long-term retention, cross-region query federation, and compaction. Decision between Thanos and VictoriaMetrics should be made based on operational team capability. VictoriaMetrics has lower operational complexity; Thanos has broader enterprise adoption.</li>
+    <li><strong>Alertmanager</strong> — per-region with mesh configuration for HA. Handles deduplication, grouping, silencing, and outbound routing to GMOM/ServiceNow webhooks.</li>
+  </ul>
+
+  <h4>Tier 3 — Presentation and Governance (Global)</h4>
+  <ul class="doc-list">
+    <li><strong>Grafana Enterprise</strong> — global unified dashboarding, on-call management (Grafana OnCall), alert state visualisation. RBAC for self-service portal equivalent.</li>
+    <li><strong>Git repository (GitOps)</strong> — alerting rules, recording rules, and scrape configurations stored as code. CI pipeline (Jenkins/GitLab CI) validates and deploys config changes. This is the version control layer that current BMC change tracking does not provide.</li>
+    <li><strong>Ansible</strong> — exporter deployment, Alloy agent configuration, and OS-level monitoring configuration at 60k scale. Integrates with existing Ansible capability.</li>
+  </ul>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="section-tag">Section 04</div>
+  <h2>Target-State High-Level Architecture</h2>
+  <p>The following represents the recommended infrastructure topology. All components are Unix/Linux only. No Windows components are present in this architecture.</p>
+
+  <div class="arch-layer">
+    <div class="arch-layer-title">Layer 0 — Managed Hosts (60k Unix/Linux + 8k DB servers)</div>
+    <p><strong>Grafana Alloy agent</strong> — lightweight, deployed via Ansible on all managed hosts. Responsible for: log tail forwarding to Loki, local exporter scrape relay, script execution wrapper invocation.</p>
+    <p><strong>Node Exporter</strong> — OS baseline metrics, exposed on port 9100 locally. Scraped by regional Prometheus.</p>
+    <p><strong>Custom Script Exporters</strong> — thin Python/shell wrappers using Prometheus text file collector (<code>/var/lib/node_exporter/textfile</code>). Covers the ~700 Patrol scripting KM equivalents and ~several hundred shell log KM equivalents.</p>
+    <p><strong>DB Exporters</strong> — Oracle, PostgreSQL, MySQL exporters on DB hosts, scraped by dedicated DB Prometheus shard.</p>
+  </div>
+
+  <div class="arch-layer">
+    <div class="arch-layer-title">Layer 1 — Regional Aggregation (Per Region: UK, US, HK, MX)</div>
+    <p><strong>Prometheus Cluster (3–5 nodes, sharded by function)</strong> — Shard 1: OS/infrastructure metrics (Node Exporter). Shard 2: Database metrics. Shard 3: Custom exporters and script metrics. Each shard runs 2 Prometheus instances in active-active for HA, scraping the same targets (Prometheus does not have native clustering — HA via duplication).</p>
+    <p><strong>Loki Cluster</strong> — Distributed log ingestion. Grafana Alloy on each host ships logs to regional Loki. Log-based alerting rules replace Patrol log KM alert conditions.</p>
+    <p><strong>Alertmanager (2-node mesh)</strong> — Active-active HA. Routes to: outbound GMOM webhook, ServiceNow incident API, email, and PagerDuty/Grafana OnCall.</p>
+    <p><strong>Blackbox Exporter</strong> — Regional deployment, ICMP monitoring of all in-region targets. Agent disconnect detection via absence alerting (<code>up == 0</code> or Alloy heartbeat absent).</p>
+  </div>
+
+  <div class="arch-layer">
+    <div class="arch-layer-title">Layer 2 — Global Federation and Long-Term Storage</div>
+    <p><strong>Thanos Query / VictoriaMetrics VMselect</strong> — Global query layer. Enables cross-region dashboard queries in Grafana. Aggregates from regional Prometheus or VictoriaMetrics nodes.</p>
+    <p><strong>Object Storage (S3-compatible, on-prem)</strong> — Thanos or VictoriaMetrics long-term block storage. Ceph or MinIO on-prem if cloud object storage is not available. Enables 12–24 month metric retention without local disk growth.</p>
+    <p><strong>Loki Compactor + Object Storage</strong> — Log retention management with configurable per-label retention policies.</p>
+  </div>
+
+  <div class="arch-layer">
+    <div class="arch-layer-title">Layer 3 — Operations and Governance</div>
+    <p><strong>Grafana Enterprise (global)</strong> — Unified UI across all regions. Role-based access for production support teams, onboarding teams, and application self-service. Dashboards provisioned via code (Grafonnet or dashboard JSON in Git).</p>
+    <p><strong>Git (Policy-as-Code)</strong> — Prometheus alerting rules, recording rules, scrape_configs, Loki alerting rules, and Alloy configs all stored in version-controlled repositories. Change review via PR/MR process. Replaces informal BMC change tracking with auditable GitOps workflow.</p>
+    <p><strong>Ansible (Config Delivery)</strong> — Exporter installation, Alloy agent configuration, alerting rule deployment. Leverages existing Ansible estate.</p>
+    <p><strong>Alertmanager → GMOM → ServiceNow</strong> — Event forwarding preserved. Alertmanager webhooks send enriched JSON payloads to the existing GMOM/event enrichment layer. GMOM continues to handle suppression, enrichment, and ServiceNow incident creation.</p>
+  </div>
+
+  <div class="callout callout-info">
+    <div class="callout-label">HA Design Note</div>
+    Prometheus does not have native clustering. High availability at this scale is achieved by running two Prometheus instances per shard scraping identical targets. Alertmanager handles deduplication via mesh. For simplified HA with native clustering, VictoriaMetrics Cluster mode is an alternative that removes the duplication requirement.
+  </div>
+</section>
+
+<!-- CUSTOM MONITORING -->
+<section id="custom-monitoring">
+  <div class="section-tag">Section 05</div>
+  <h2>Custom Monitoring Depth: Scripts via Log Components</h2>
+
+  <p>This is the section that most architecture reviews understate. At this bank, approximately 700 servers run custom monitoring via Patrol scripting KM, and several hundred more use shell-script monitoring through log KM. This is not a minor edge case — it is core monitoring logic.</p>
+
+  <h3>The BMC Patrol Model (Current State)</h3>
+  <p>In Patrol, a script KM executes a script, captures its output or exit code, and compares it against a threshold or regex pattern. The log KM tails a log file and fires an alert when output matches a rule. Both models treat text output as a first-class monitoring signal.</p>
+
+  <h3>The Prometheus/Loki Equivalent</h3>
+
+  <h4>Script Monitoring → Text File Collector</h4>
+  <p>Prometheus's text file collector allows any process to write a <code>.prom</code> file in a designated directory (<code>/var/lib/node_exporter/textfile/</code>). Node Exporter reads these files and exposes their contents as standard Prometheus metrics. This means any shell script can produce monitoring data by writing a file.</p>
+  <p>A standard wrapper pattern:</p>
+  <ul class="doc-list">
+    <li>Existing Patrol script runs via cron or systemd timer</li>
+    <li>Script output is converted to Prometheus text format by a thin wrapper</li>
+    <li>Node Exporter exposes the resulting metric</li>
+    <li>Prometheus scrapes it, evaluates threshold rules, fires alerts via Alertmanager</li>
+  </ul>
+  <p>This pattern supports both numeric output (gauge/counter metrics) and text output (info metrics with label encoding). The wrapper is 10–20 lines of shell. Migration of 700 scripting KM equivalents is a structured programme of work, not a technical impossibility.</p>
+
+  <h4>Log Monitoring → Loki Alerting Rules</h4>
+  <p>Loki supports alerting rules using LogQL — the log query language. A Patrol log KM rule like "alert if this string appears in <code>/var/log/app.log</code>" translates to a Loki alerting rule using a log stream selector and a line filter expression. Rules are stored as YAML, managed in Git, deployed via CI.</p>
+  <p>Grafana Alloy on each host handles log tailing, label injection (hostname, environment, policy tag), and forwarding to Loki. The Patrol log KM's per-server customisation is replicated via Alloy configuration scoped per-host or per-group using Alloy's config block model.</p>
+
+  <h4>What Cannot Be Directly Replicated</h4>
+  <div class="callout callout-danger">
+    <div class="callout-label">Complexity — Do Not Understate</div>
+    <ul class="doc-list" style="margin-top:8px;">
+      <li>Scripts that perform complex multi-step logic with internal state will require refactoring, not just wrapping. Patrol KM scripts that interact with the Patrol agent API directly are not portable.</li>
+      <li>Scripts that return structured multi-value output need a more complex exporter wrapper — not a simple text file write.</li>
+      <li>Real-time log alerting in Patrol (sub-minute) is achievable in Loki but requires correct Alloy pipeline and Loki ruler configuration. Default Loki ruler evaluation interval is 1 minute — this must be confirmed acceptable or reduced at cost of load.</li>
+      <li>The 38,000 custom policies cannot be migrated automatically. A policy audit, classification, and migration programme is required. Estimate: 12–18 months for full migration with a dedicated team.</li>
+    </ul>
+  </div>
+
+  <h3>Script Exporter Alternative</h3>
+  <p>For complex scripts, the Prometheus <strong>script_exporter</strong> (open-source, third-party) allows Prometheus to execute scripts at scrape time and parse their output as metrics. This is closer to the Patrol scripting KM execution model. It introduces a synchronous script execution risk at scale and should be used selectively — not as a default pattern for all 700 scripts.</p>
+</section>
+
+<!-- COMPARISON MATRIX -->
+<section id="matrix">
+  <div class="section-tag">Section 06</div>
+  <h2>Comparison Matrix</h2>
+  <p>The following matrix evaluates all leading options against the bank's review criteria. BMC Helix/BHOM is included as the baseline reference.</p>
+
+  <div class="matrix-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Criterion</th>
+          <th>Prometheus + Grafana Stack</th>
+          <th>Zabbix</th>
+          <th>Icinga2</th>
+          <th>Elastic Observability</th>
+          <th>BMC Helix (Reference)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-crit">Baseline policy model</td>
+          <td><span class="badge badge-green">STRONG</span><br>Recording rules + Node Exporter covers all baseline OS metrics. Tag-based via labels.</td>
+          <td><span class="badge badge-green">STRONG</span><br>Template inheritance maps closely to BMC tag model.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Service check templates work but config complexity rises at scale.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Fleet rules in Elastic Agent policy but not purpose-built for infra tags.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Tag-based baseline, native.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Per-host custom monitoring</td>
+          <td><span class="badge badge-yellow">REQUIRES WORK</span><br>Achievable via custom exporters + Alloy config. Not native config management.</td>
+          <td><span class="badge badge-green">STRONG</span><br>UserParameters, external scripts, per-host overrides native.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Director web interface supports per-host config but UX is functional, not polished.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Custom integrations possible but operational model differs significantly.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Per-server custom KM, native.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Log monitoring</td>
+          <td><span class="badge badge-green">STRONG</span><br>Loki + Alloy. LogQL alerting rules. Per-host log path config via Alloy.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Log monitoring via Zabbix log items, but lacks Loki's query depth.</td>
+          <td><span class="badge badge-red">WEAK</span><br>Not a log-native platform. Requires external log pipeline.</td>
+          <td><span class="badge badge-green">STRONG</span><br>Best-in-class log search. Elastic is purpose-built for log analytics.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Log KM, native.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Script monitoring</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Text file collector + script_exporter. Wrapping required for all 700+ scripts.</td>
+          <td><span class="badge badge-green">STRONG</span><br>External scripts and UserParameters are core Zabbix capabilities.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>NRPE/check plugins support scripts. Config management complexity.</td>
+          <td><span class="badge badge-red">WEAK</span><br>Not designed for check-style script execution monitoring.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Scripting KM, native.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Filesystem threshold monitoring</td>
+          <td><span class="badge badge-green">STRONG</span><br>Node Exporter <code>node_filesystem_*</code> metrics. Per-mount alert rules with labels.</td>
+          <td><span class="badge badge-green">STRONG</span><br>Native, per-item thresholds, per-host override supported.</td>
+          <td><span class="badge badge-green">STRONG</span><br>check_disk plugin, threshold configuration per-host.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Metric collection available but per-mount threshold management not native.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Native, per-filesystem.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">ICMP / ping monitoring</td>
+          <td><span class="badge badge-green">STRONG</span><br>Blackbox Exporter, ICMP probe. Multi-region deployment. Alerting rules native.</td>
+          <td><span class="badge badge-green">STRONG</span><br>Native ICMP monitoring built in.</td>
+          <td><span class="badge badge-green">STRONG</span><br>check_ping, native.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Synthetics/Uptime monitor but requires additional component.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Native ping KM.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Agent disconnect detection</td>
+          <td><span class="badge badge-yellow">REQUIRES PATTERN</span><br>Dead man's switch via <code>absent()</code> Prometheus alerting. Alloy heartbeat metric required. Not native out-of-box.</td>
+          <td><span class="badge badge-green">STRONG</span><br>Host availability / agent passive check timeout native.</td>
+          <td><span class="badge badge-green">STRONG</span><br>Passive check freshness native.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Elastic Agent fleet status provides this but differs from metric alerting.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Agent disconnect alert native.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Self-service portal</td>
+          <td><span class="badge badge-yellow">REQUIRES BUILD</span><br>Grafana RBAC + custom forms or Backstage plugin. Not provided out-of-box. GitOps PR workflow can serve as structured alternative.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Zabbix web UI supports host management. Full self-service requires workflow tooling.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Icinga Director has request-based config. Limited self-service UX.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Fleet UI in Elastic for agent policy but not a monitoring request portal.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Native self-service portal.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">API-driven lifecycle</td>
+          <td><span class="badge badge-green">STRONG</span><br>Prometheus config via file API + reload. Grafana API. Loki ruler API. Full GitOps automation possible.</td>
+          <td><span class="badge badge-green">STRONG</span><br>Full Zabbix API for host, template, trigger CRUD.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Icinga2 REST API available but less mature tooling ecosystem.</td>
+          <td><span class="badge badge-green">STRONG</span><br>Elasticsearch and Fleet APIs comprehensive.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>BHOM REST API.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">60k server scale</td>
+          <td><span class="badge badge-green">PROVEN</span><br>Prometheus at 60k+ servers is documented. Requires sharding. Thanos/VM for federation.</td>
+          <td><span class="badge badge-yellow">MARGINAL</span><br>Documented up to ~30–40k hosts with proxy architecture. 60k is uncharted territory with significant risk.</td>
+          <td><span class="badge badge-red">NOT PROVEN</span><br>No documented deployments at this scale. Scheduler architecture will require substantial engineering.</td>
+          <td><span class="badge badge-yellow">REQUIRES SIZING</span><br>Elasticsearch clusters at this scale require substantial hardware and expertise.</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Known issues at scale (750-server integration limit).</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Kubernetes future-state</td>
+          <td><span class="badge badge-green">NATIVE</span><br>Prometheus Operator, kube-state-metrics, Grafana dashboards are the de facto Kubernetes observability standard.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Kubernetes integration available but architecturally awkward for ephemeral workloads.</td>
+          <td><span class="badge badge-red">WEAK</span><br>Not designed for container-native monitoring.</td>
+          <td><span class="badge badge-yellow">PARTIAL</span><br>Elastic supports Kubernetes but adds cost and complexity to an already heavy stack.</td>
+          <td><span class="badge badge-red">POOR</span><br>BHOM has limited container-native roadmap. Separate tooling likely required.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Commercial support</td>
+          <td><span class="badge badge-green">AVAILABLE</span><br>Grafana Labs Enterprise. Grafana OnCall. Training available. SLA-backed support contracts.</td>
+          <td><span class="badge badge-yellow">LIMITED</span><br>Zabbix LLC commercial support exists. Limited large-scale banking reference.</td>
+          <td><span class="badge badge-yellow">LIMITED</span><br>NETWAYS/Icinga GmbH. Smaller market presence.</td>
+          <td><span class="badge badge-green">AVAILABLE</span><br>Elastic commercial support. But licensing risk (SSPL).</td>
+          <td><span class="badge badge-blue">REFERENCE</span><br>Full BMC commercial support.</td>
+        </tr>
+        <tr>
+          <td class="td-crit">Licensing risk</td>
+          <td><span class="badge badge-green">LOW</span><br>Prometheus, Loki, Alertmanager: Apache 2.0. Grafana OSS: AGPL v3. Grafana Enterprise: commercial.</td>
+          <td><span class="badge badge-green">LOW</span><br>AGPL v3 (self-hosted). No SaaS dependency.</td>
+          <td><span class="badge badge-green">LOW</span><br>GPL v2. Established and stable.</td>
+          <td><span class="badge badge-yellow">MODERATE</span><br>SSPL from v7.11. Restrictions on SaaS usage. Financial services legal review required.</td>
+          <td><span class="badge badge-dim">COMMERCIAL</span><br>Full commercial licence.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-info">
+    <div class="callout-label">Matrix Verdict</div>
+    Prometheus + Grafana stack is the only candidate that scores <strong>STRONG or PROVEN</strong> on both 60k-scale readiness and Kubernetes future-state — the two criteria where architectural regret is most expensive. Zabbix is a credible operational alternative if Kubernetes adoption is low-priority and if the bank accepts the 30–40k host ceiling risk.
+  </div>
+</section>
+
+<!-- DAY 2 OPS -->
+<section id="day2">
+  <div class="section-tag">Section 07</div>
+  <h2>Patching, Platform Support, and Day-2 Operational Impact</h2>
+
+  <h3>15-Day Patching Cycle</h3>
+  <p>The bank's 15-day patching cycle applies to all managed infrastructure. This has direct implications for monitoring platform components.</p>
+
+  <h4>Agent-Side (Alloy / Node Exporter)</h4>
+  <p>Grafana Alloy and Node Exporter are static binaries. They have no runtime dependencies and do not require OS package management for operation. Patching the OS underneath them does not require agent reconfiguration in most cases. Agent restart after OS patch is handled by systemd service configuration — no manual intervention required at scale.</p>
+  <p>Alloy itself will have release cadence updates. Agent binary updates can be orchestrated via Ansible at scale within the 15-day window. This is significantly simpler than Patrol KM patching, which requires coordination with the Patrol server and knowledge module version compatibility checks.</p>
+
+  <h4>Platform-Side (Prometheus, Loki, Alertmanager)</h4>
+  <p>These are long-running server processes. A HA design (active-active pairs) allows rolling upgrades during the patch window without monitoring gaps. Prometheus rolling restart during scrape cycle results in at most one scrape interval gap (typically 60 seconds) — acceptable for operational monitoring.</p>
+  <p>Loki and Thanos/VictoriaMetrics use object storage backends. Component restarts do not lose data. Rolling upgrades are supported by all three projects.</p>
+
+  <h4>OS-Level Compatibility</h4>
+  <p>All stack components are distributed as Linux binaries or container images. They run on RHEL 7+, Oracle Linux 7+, Ubuntu, and Debian. AIX and Solaris are explicitly not supported by any component in this stack. For AIX and Solaris hosts, monitoring must be addressed via remote black-box checking (SNMP, remote script execution, or SSH-based checks via Blackbox Exporter extensions). This is a genuine coverage gap that must be acknowledged in the migration programme.</p>
+
+  <div class="callout callout-danger">
+    <div class="callout-label">AIX and Solaris — Coverage Gap</div>
+    No component in the Prometheus/Grafana stack runs natively on AIX or Solaris. Prometheus exporters are Linux/macOS binaries. If AIX and Solaris hosts require in-process agent monitoring (equivalent to Patrol agent), a separate solution or remote monitoring strategy must be defined. Options: remote SSH-based checks via Prometheus blackbox+script, SNMP polling, or Zabbix agent (which does compile for AIX). This is not a blocker but must be scoped explicitly in Phase 1.
+  </div>
+
+  <h3>Day-2 Operations Burden</h3>
+
+  <h4>Configuration Drift</h4>
+  <p>BMC Patrol's operational model centralises configuration on the server. The PAG stack's GitOps model distributes config across Git, CI, Alloy agent configs, and Prometheus rule files. Without discipline, this introduces configuration drift risk. The mitigation is mandatory GitOps — all configuration changes go through Git, not ad-hoc file edits on monitoring servers. This requires a cultural shift for production support teams trained on BMC's centralised model.</p>
+
+  <h4>Prometheus Cardinality Management</h4>
+  <p>At 60k servers, cardinality explosion is a real operational risk. Poorly designed custom exporters or log label schemas can cause Prometheus memory exhaustion. Production support teams must be trained in cardinality analysis. Grafana Enterprise includes cardinality management tools. This is a day-2 discipline requirement, not a day-0 architecture failure.</p>
+
+  <h4>Alert Noise and Runbook Maintenance</h4>
+  <p>Migrating 38,000 policies to Alertmanager rules will initially produce significantly more alert noise than the tuned BMC environment. A noise reduction programme running in parallel with migration is required. This is expected and should be planned as a named workstream, not an afterthought.</p>
+
+  <h4>On-Call Model</h4>
+  <p>Grafana OnCall (part of Grafana Enterprise) provides on-call schedule management, escalation policies, and alert routing. This directly replaces any BMC on-call routing currently handled through GMOM. Integration with ServiceNow remains through the existing webhook path.</p>
+</section>
+
+<!-- KUBERNETES -->
+<section id="kubernetes">
+  <div class="section-tag">Section 08</div>
+  <h2>Kubernetes and Container Monitoring — Future-State Strategy</h2>
+
+  <p>The PAG stack is the de facto standard for Kubernetes observability. This is not a qualified statement — it is the operational reality across the industry.</p>
+
+  <h3>Kubernetes Monitoring via the Same Platform</h3>
+  <p>When Kubernetes adoption begins, the following components are added to the existing PAG stack without architectural disruption:</p>
+
+  <ul class="doc-list">
+    <li><strong>Prometheus Operator</strong> — manages Prometheus, Alertmanager, and ServiceMonitor CRDs inside Kubernetes clusters. Kubernetes workloads define their own monitoring via ServiceMonitor resources, integrating with the same Alertmanager and Grafana.</li>
+    <li><strong>kube-state-metrics</strong> — exposes Kubernetes API object state as Prometheus metrics (pod status, deployment replicas, node conditions).</li>
+    <li><strong>Grafana Alloy on Kubernetes</strong> — deployed as a DaemonSet. Handles container log collection and forwarding to the same Loki cluster used for Unix/Linux server logs.</li>
+    <li><strong>Thanos / VictoriaMetrics federation</strong> — Kubernetes cluster Prometheus instances federate to the same global query layer as regional Unix monitoring Prometheus instances. Single Grafana query endpoint for operators.</li>
+  </ul>
+
+  <h3>Single Logical Platform</h3>
+  <p>This is the primary architectural advantage of the PAG stack over any alternative. A production support engineer monitoring a RHEL 8 server and a Kubernetes pod uses the same Grafana interface, the same Alertmanager routing, the same on-call tool, and the same alert rule syntax. This is not achievable with Zabbix + a separate Kubernetes stack, or Icinga2 + Prometheus.</p>
+
+  <div class="callout callout-rec">
+    <div class="callout-label">Long-Term Platform Continuity</div>
+    The risk of a monitoring platform split — where Unix infrastructure uses one tool and Kubernetes uses another — is a significant operational and cost liability. The PAG stack eliminates this risk by design. It is the single strongest argument for choosing this stack over Zabbix even if Zabbix is operationally preferable for the legacy Unix estate alone.
+  </div>
+</section>
+
+<!-- MIGRATION -->
+<section id="migration">
+  <div class="section-tag">Section 09</div>
+  <h2>Phased Migration and Adoption Strategy</h2>
+
+  <div class="phase-grid">
+    <div class="phase-block">
+      <div class="phase-num">01</div>
+      <div class="phase-title">Foundation and Proof of Value</div>
+      <div class="phase-duration">Months 1–4</div>
+      <ul>
+        <li>Define target architecture. Select Thanos vs VictoriaMetrics.</li>
+        <li>Deploy PAG stack in one region (recommended: UK — largest policy volume).</li>
+        <li>Deploy Node Exporter + Alloy on 500-server pilot group.</li>
+        <li>Establish GitOps repository structure for rules and configs.</li>
+        <li>Migrate baseline OS monitoring policies for pilot group.</li>
+        <li>Connect Alertmanager to existing GMOM webhook.</li>
+        <li>Define AIX/Solaris remote monitoring strategy.</li>
+        <li>Grafana dashboard parity with key BMC views.</li>
+      </ul>
+    </div>
+    <div class="phase-block">
+      <div class="phase-num">02</div>
+      <div class="phase-title">Baseline Policy Migration</div>
+      <div class="phase-duration">Months 4–10</div>
+      <ul>
+        <li>Full UK region OS baseline migration (12k policies).</li>
+        <li>Node Exporter rollout to all UK Linux/RHEL servers via Ansible.</li>
+        <li>Loki deployment for log monitoring. Alloy log pipeline configured.</li>
+        <li>Blackbox Exporter ICMP coverage replaces Patrol ping KM.</li>
+        <li>Agent disconnect dead man's switch alerting pattern validated.</li>
+        <li>Self-service portal v1 (GitOps PR workflow + lightweight UI or Backstage plugin).</li>
+        <li>Production support team training programme.</li>
+      </ul>
+    </div>
+    <div class="phase-block">
+      <div class="phase-num">03</div>
+      <div class="phase-title">Custom Policy Migration</div>
+      <div class="phase-duration">Months 10–18</div>
+      <ul>
+        <li>Audit and classify all 38k custom policies. Triage: migrate, rationalise, retire.</li>
+        <li>Custom exporter wrapper framework built and standardised.</li>
+        <li>Scripting KM equivalents migrated in priority order (risk-ranked).</li>
+        <li>Log KM equivalents migrated to Loki alerting rules.</li>
+        <li>US, HK, MX regional deployments run in parallel.</li>
+        <li>Thanos/VM global federation operational.</li>
+        <li>Full multi-region HA validated under load.</li>
+      </ul>
+    </div>
+    <div class="phase-block">
+      <div class="phase-num">04</div>
+      <div class="phase-title">Full Cutover and DB Coverage</div>
+      <div class="phase-duration">Months 18–24</div>
+      <ul>
+        <li>DB exporter deployment to 8k DB servers, 10k+ instances.</li>
+        <li>BMC Patrol decommission plan approved and executed by region.</li>
+        <li>Operational runbooks completed and stored in Git alongside rules.</li>
+        <li>Cardinality governance process embedded in onboarding workflow.</li>
+        <li>Post-migration noise reduction programme completes.</li>
+        <li>Grafana Enterprise self-service portal operationalised.</li>
+        <li>Kubernetes readiness assessment — Prometheus Operator POC.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout-warn">
+    <div class="callout-label">Migration Programme Note</div>
+    A 24-month timeline is realistic for this scale if staffed correctly. Attempting this in 12 months without a dedicated migration team and a clear policy rationalisation programme will produce a failed or partial migration with parallel platform costs. The 200 monthly policy changes cannot stop during migration — the new platform must absorb live change traffic from approximately Month 6 onwards.
+  </div>
+</section>
+
+<!-- RISKS -->
+<section id="risks">
+  <div class="section-tag">Section 10</div>
+  <h2>Risks and Mitigations</h2>
+
+  <div class="matrix-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Risk</th>
+          <th>Probability</th>
+          <th>Impact</th>
+          <th>Mitigation</th>
+        </tr>
+      </thead>
+      <tbody class="risk-row">
+        <tr>
+          <td><code>Cardinality explosion</code> at 60k server scale causing Prometheus OOM</td>
+          <td><span class="badge badge-yellow">MEDIUM</span></td>
+          <td><span class="badge badge-red">HIGH</span></td>
+          <td>Enforce cardinality budgets via Prometheus recording rules. Grafana Enterprise cardinality explorer in production from Day 1. Mandatory label governance in GitOps PR review.</td>
+        </tr>
+        <tr>
+          <td><code>AIX/Solaris coverage gap</code> — no native exporters</td>
+          <td><span class="badge badge-green">CERTAIN</span></td>
+          <td><span class="badge badge-yellow">MEDIUM</span></td>
+          <td>Remote monitoring strategy defined in Phase 1. SSH-based checks via Blackbox Exporter or dedicated Zabbix agent for AIX hosts as a hybrid. Scope to be agreed with the business.</td>
+        </tr>
+        <tr>
+          <td><code>Policy migration scope creep</code> — 38k policies without rationalisation</td>
+          <td><span class="badge badge-yellow">MEDIUM</span></td>
+          <td><span class="badge badge-red">HIGH</span></td>
+          <td>Mandatory policy audit in Phase 3. Conservative estimate: 30–40% of 38k policies are candidates for rationalisation or retirement. Treat migration as an improvement programme, not a lift-and-shift.</td>
+        </tr>
+        <tr>
+          <td><code>Cultural resistance</code> — production support team trained on BMC model</td>
+          <td><span class="badge badge-yellow">MEDIUM</span></td>
+          <td><span class="badge badge-yellow">MEDIUM</span></td>
+          <td>Structured Grafana Enterprise training programme. Internal champions from the production support team embedded in migration team from Phase 1. GitOps workflows designed for operational simplicity, not developer-only usage.</td>
+        </tr>
+        <tr>
+          <td><code>Dual-platform operating cost</code> during 24-month migration</td>
+          <td><span class="badge badge-green">CERTAIN</span></td>
+          <td><span class="badge badge-yellow">MEDIUM</span></td>
+          <td>Accepted and budgeted as a transition cost. BMC licence cost reduction begins as regions are decommissioned. ROI calculation should factor 18-month BMC licence reduction against new platform build cost.</td>
+        </tr>
+        <tr>
+          <td><code>Self-service portal gap</code> — no native equivalent</td>
+          <td><span class="badge badge-green">CERTAIN</span></td>
+          <td><span class="badge badge-yellow">MEDIUM</span></td>
+          <td>Phase 2 deliverable. Interim model: GitOps PR workflow with a Grafana-based view of existing policies. Backstage or a lightweight custom portal in Phase 3. Not a blocking risk but must be planned.</td>
+        </tr>
+        <tr>
+          <td><code>Grafana Labs licence lock-in</code> if Enterprise features are adopted</td>
+          <td><span class="badge badge-yellow">LOW-MEDIUM</span></td>
+          <td><span class="badge badge-yellow">MEDIUM</span></td>
+          <td>Design for Grafana OSS core with Enterprise features as optional overlay. Avoid encoding Enterprise-only features into operational workflows. On-call routing via Alertmanager (open-source) not solely via Grafana OnCall.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- DECISION -->
+<section id="decision">
+  <div class="section-tag">Section 11</div>
+  <h2>Decision Rationale — Architecture Approval</h2>
+
+  <p>This section is intended for Architecture Review Board and leadership sign-off. It compresses the preceding analysis into the five arguments that constitute the recommendation.</p>
+
+  <h3>1. Scale is Non-Negotiable</h3>
+  <p>The Prometheus ecosystem has documented, reference deployments at 60,000+ server scale with federation and sharding. No other open-source candidate can make this claim with comparable production evidence. At the bank's scale, choosing a platform without a proven ceiling is not a risk worth taking.</p>
+
+  <h3>2. The Kubernetes Problem Must Be Solved Once</h3>
+  <p>When the bank's infrastructure moves toward containers, the monitoring platform decision becomes a 10-year decision, not a 3-year one. The PAG stack is the only option that makes the Kubernetes transition a configuration addition rather than a platform replacement. The cost of running two monitoring platforms — one for legacy Unix and one for Kubernetes — exceeds the cost of migrating to a single platform now.</p>
+
+  <h3>3. Commercial Support Is Available and Mature</h3>
+  <p>Grafana Labs offers enterprise support contracts, training, and SLA-backed services. This is not an unsupported open-source project. The financial services sector has precedent for Grafana Enterprise deployments at banking scale. This de-risks the "who do we call at 3am" concern that production support leadership will raise.</p>
+
+  <h3>4. Custom Monitoring Is Solvable, Not Trivial</h3>
+  <p>The 700+ Patrol scripting KM equivalents and 38k custom policies are not a technical blocker. They are a structured migration programme. The text file collector and Loki alerting rule patterns cover the vast majority of cases. What requires genuine engineering effort is the audit, classification, and wrapper development — not a fundamental architectural limitation. This work should be scoped as a named programme with dedicated resourcing, not as part of the platform team's background work.</p>
+
+  <h3>5. GitOps Governance Improves the Current State</h3>
+  <p>The current BMC environment has change tracking but not formal versioning. The PAG stack's GitOps model produces an audit trail, rollback capability, and peer-reviewed policy changes as a structural byproduct of normal operations. This is an improvement in governance posture, not just a technology change. For a banking environment, this argument resonates at the CISO and risk function level, not just engineering.</p>
+
+  <hr class="divider">
+
+  <div class="callout callout-rec">
+    <div class="callout-label">Final Recommendation</div>
+    <p><strong>Adopt the Prometheus + Grafana + Loki + Alertmanager stack</strong> as the target-state monitoring platform for the bank's Unix/Linux infrastructure estate.</p>
+    <p style="margin-top:10px;">Proceed to Phase 1 (Foundation) with:</p>
+    <ul class="doc-list" style="margin-top:8px;">
+      <li>UK region as the primary migration zone</li>
+      <li>Grafana Labs Enterprise engagement for commercial support and training</li>
+      <li>Thanos vs VictoriaMetrics decision within Phase 1 based on team capability assessment</li>
+      <li>AIX/Solaris remote monitoring strategy defined before Phase 2 commencement</li>
+      <li>Dedicated migration team staffed — minimum 4 engineers plus a migration programme lead</li>
+      <li>Policy audit workstream initiated in parallel with Phase 1 technical deployment</li>
+    </ul>
+    <p style="margin-top:12px; font-size:12px; color: var(--text-dim);">Estimated migration timeline: 20–24 months to full BMC decommission. Dual-platform cost window: 12–18 months depending on regional decommission sequencing.</p>
+  </div>
+</section>
+```
+
+  </main>
+</div>
+
+<footer class="doc-footer">
+  <div>MONITORING PLATFORM REPLACEMENT · ARCHITECTURE REVIEW BOARD</div>
+  <div>INTERNAL USE ONLY · ALL REGIONS</div>
+</footer>
+
+<script>
+  // Simple scroll-spy for sidebar navigation
+  const sections = document.querySelectorAll('section[id]');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navItems.forEach(item => item.classList.remove('active'));
+        const activeLink = document.querySelector(`.nav-item[href="#${entry.target.id}"]`);
+        if (activeLink) activeLink.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(section => observer.observe(section));
+
+  // Smooth scroll
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = document.querySelector(item.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+</script>
+
+</body>
+</html>
