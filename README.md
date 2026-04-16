@@ -15,16 +15,16 @@ Two open-source options are evaluated:
 1. **Zabbix** as the primary monitoring platform.
 2. **Prometheus stack** (Prometheus + Alertmanager + long-term storage + Grafana).
 
-BMC Helix Ops Mgmt (BHOM) is used as the baseline for functional comparison.[cite:149][cite:154]
+BMC Helix Ops Mgmt (BHOM) is used as the baseline for functional comparison.
 
 ---
 
 ## Current State Summary
 
-- ~60k Unix/Linux servers and ~8k database servers across UK, US, HK, MX.
-- BHOM/TrueSight with PATROL agents and KMs for OS, DB, log, and script monitoring.[cite:149][cite:155][cite:159]
-- Integration Services limited to ~750 agents each, leading to 60+ IS instances per region and overload issues at high monitor/attribute counts.[cite:90][cite:97]
-- ~38k custom policies across ~40k servers, including ~12k in UK.
+- ~60k Unix/Linux servers and ~8k database servers (Oracle, PostgreSQL, Mongo, Sybase, DB2) across UK, US, HK, MX.
+- BHOM - with PATROL agents and KMs for OS, DB, log, and script monitoring.
+- TSOM (Old) - Integration Services limited to ~750 agents each, leading to 60+ IS instances per region and overload issues at high monitor/attribute counts.
+- ~38k custom policies across ~40k servers, including ~12k only in UK.
 - At least 200 policy changes per month, mostly log/process/filesystem monitoring requested via a self-service portal.
 - GMOM-like event layer used for enrichment, correlation, and downstream routing.
 
@@ -53,7 +53,7 @@ The replacement platform must:
 
 ## Option 1 – Zabbix-Based Target Architecture
 
-Zabbix is a mature, open-source monitoring platform with a central server, a distributed proxy layer, and agents on monitored hosts.[cite:39][cite:54][cite:103] It natively supports templates (similar to policies), log monitoring, custom scripts, and has a full HTTP API.
+Zabbix is a mature, open-source monitoring platform with a central server, a distributed proxy layer, and agents on monitored hosts. It natively supports templates (similar to policies), log monitoring, custom scripts, and has a full HTTP API.
 
 ### 1.1 Core Components (Unix-Only)
 
@@ -74,14 +74,14 @@ Zabbix is a mature, open-source monitoring platform with a central server, a dis
   - UK: 6–8 proxies, sized for ~5–10k NVPS (new values per second) each, split by environment and domain (Unix, DB, app).
   - US: 6–8 proxies with similar sizing.
   - HK/MX: 3–4 proxies per region, scaled to host counts.
-  - Proxies run on Linux, buffering data locally and actively pushing to the central server.[cite:54][cite:56]
+  - Proxies run on Linux, buffering data locally and actively pushing to the central server.
 
 **Agents:**
 
 - Zabbix agent 2 deployed on all Unix/Linux servers and DB hosts.
-- Agents use both passive and active checks; active checks allow configuration changes to propagate from server/proxy to agents without manual file edits.[cite:39][cite:103]
+- Agents use both passive and active checks; active checks allow configuration changes to propagate from server/proxy to agents without manual file edits.
 
-This architecture is sized with headroom beyond the current TrueSight integration service limits and is aligned with Zabbix performance guidance around NVPS and proxy distribution.[cite:76][cite:82][cite:85]
+This architecture is sized with headroom beyond the current TrueSight integration service limits and is aligned with Zabbix performance guidance around NVPS and proxy distribution.
 
 ### 1.2 Policy and Custom Monitoring Model
 
@@ -93,8 +93,8 @@ Zabbix maps naturally to the existing Helix/Patrol policy model.
   - CPU, memory, uptime, load average, kernel metrics.
   - Filesystem discovery and utilization metrics via low-level discovery (LLD).
   - Default process checks (e.g., sshd, critical daemons).
-  - ICMP ping (availability/latency) and agent health (`agent.ping`, nodata-based triggers).[cite:103][cite:115]
-- Applied to all Linux hosts via host groups and auto-registration rules, mirroring the existing tag-based baseline pattern.[cite:103]
+  - ICMP ping (availability/latency) and agent health (`agent.ping`, nodata-based triggers).
+- Applied to all Linux hosts via host groups and auto-registration rules, mirroring the existing tag-based baseline pattern.
 
 **Custom per-host/per-app policies:**
 
@@ -105,22 +105,22 @@ Zabbix maps naturally to the existing Helix/Patrol policy model.
 - These are modelled as:
   - **Items**: log/file/process items defined on the host or via custom templates.
   - **Triggers**: alert conditions on item values.
-  - **Macros**: values for thresholds (e.g., `{$FS_WARN}`, `{$FS_CRIT}`, `{$PROC_MIN}`) overridable at host or template scope.[cite:103][cite:115]
+  - **Macros**: values for thresholds (e.g., `{$FS_WARN}`, `{$FS_CRIT}`, `{$PROC_MIN}`) overridable at host or template scope.
 
 **Script monitoring via logs:**
 
 - Scripts continue to write status or metrics to log files.
-- Zabbix agent uses native log item keys such as `log[]`, `logrt[]`, and associated `log.count[]` variants:[cite:106][cite:110][cite:114]
+- Zabbix agent uses native log item keys such as `log[]`, `logrt[]`, and associated `log.count[]`
   - Example: `log[/var/log/appX/script_status.log,"SCRIPT_ERROR|CRITICAL"]`.
   - Triggers fire when matching patterns appear or counts exceed thresholds.
-- This closely matches the existing use of PATROL scripting KM and log KM, but with a cleaner API-driven configuration model.[cite:155][cite:159]
+- This closely matches the existing use of PATROL scripting KM and log KM, but with a cleaner API-driven configuration model.
 
 ### 1.3 API and Self-Service Portal
 
 - Zabbix exposes a comprehensive HTTP API for configuration:
-  - `item.create`, `item.update`, `item.delete` for log/process/filesystem items.[cite:107]
-  - `trigger.create`, `trigger.update`, `trigger.delete` for alert conditions.[cite:111][cite:115]
-  - Host, template, and macro APIs for baseline application and overrides.[cite:103]
+  - `item.create`, `item.update`, `item.delete` for log/process/filesystem items.
+  - `trigger.create`, `trigger.update`, `trigger.delete` for alert conditions.
+  - Host, template, and macro APIs for baseline application and overrides.
 - The self-service portal for application teams will:
   - Read current configuration via the API (for viewing existing log/process policies).
   - Allow app teams to request new or changed policies.
@@ -148,13 +148,13 @@ Zabbix’s architecture and proxy buffering make it well-suited to aggressive pa
 Zabbix can monitor Kubernetes and containers without introducing a second primary monitoring product.
 
 - **In-cluster deployment:**
-  - Use the Zabbix Helm chart to deploy a Zabbix proxy and agent DaemonSet into each cluster.[cite:152][cite:162]
+  - Use the Zabbix Helm chart to deploy a Zabbix proxy and agent DaemonSet into each cluster.
   - The in-cluster proxy communicates back to the central Zabbix server over TLS.
 - **Kubernetes templates:**
-  - Official templates monitor Kubernetes nodes, API server, and other control-plane components via the Kubernetes API and kube-state-metrics.[cite:157][cite:162]
+  - Official templates monitor Kubernetes nodes, API server, and other control-plane components via the Kubernetes API and kube-state-metrics.
   - Linux node metrics can reuse `Template_Linux_Baseline`, maintaining consistency across bare-metal and container nodes.
 - **Prometheus metrics integration:**
-  - Zabbix can ingest Prometheus-format metrics via integrations, allowing reuse of existing exporters where needed, while keeping Zabbix as the single pane of glass.[cite:157][cite:162]
+  - Zabbix can ingest Prometheus-format metrics via integrations, allowing reuse of existing exporters where needed, while keeping Zabbix as the single pane of glass.
 
 The Zabbix server, DB, and web components can initially run on Linux VMs and later be containerized onto internal Kubernetes clusters if required, without changing the overall architecture.
 
@@ -162,19 +162,19 @@ The Zabbix server, DB, and web components can initially run on Linux VMs and lat
 
 ## Option 2 – Prometheus-Based Target Architecture
 
-Prometheus is a CNCF-graduated metrics and alerting toolkit and the de facto standard for Kubernetes monitoring.[cite:121][cite:125][cite:129][cite:163] It excels at high-volume metrics ingestion and SRE-style observability but does not provide a native policy abstraction equivalent to BHOM/TrueSight or Zabbix.
+Prometheus is a CNCF-graduated metrics and alerting toolkit and the de facto standard for Kubernetes monitoring. It excels at high-volume metrics ingestion and SRE-style observability but does not provide a native policy abstraction equivalent to BHOM/TrueSight or Zabbix.
 
 ### 2.1 Core Components (Unix-Only)
 
 - **Regional Prometheus shards:**
-  - 2–3 Prometheus servers per region, each handling ~2M active time series for comfortable headroom.[cite:77][cite:91][cite:99][cite:102]
+  - 2–3 Prometheus servers per region, each handling ~2M active time series for comfortable headroom.
   - Targets sharded by role (Unix vs DB vs app) and environment (prod vs non-prod).
   - Each shard deployed in an HA pair.
 - **Long-term storage and global querying:**
-  - Thanos, Cortex, Mimir, or VictoriaMetrics cluster for global queries and long-term retention.[cite:78][cite:96]
+  - Thanos, Cortex, Mimir, or VictoriaMetrics cluster for global queries and long-term retention.
 - **Alerting and visualization:**
-  - Alertmanager cluster for deduplication, routing, and silencing.[cite:116][cite:104]
-  - Grafana cluster for dashboards across Prometheus and long-term storage.[cite:83]
+  - Alertmanager cluster for deduplication, routing, and silencing.
+  - Grafana cluster for dashboards across Prometheus and long-term storage.
 
 All components run on Linux and can be deployed as VMs or containers.
 
@@ -183,13 +183,13 @@ All components run on Linux and can be deployed as VMs or containers.
 Prometheus exposes primitives (metrics, labels, alerting rules) but does not define policies.
 
 - **Baselines:**
-  - node_exporter and DB exporters expose OS/DB metrics; labels encode host attributes (e.g., `os="linux"`, `env="prod"`).[cite:41][cite:113]
+  - node_exporter and DB exporters expose OS/DB metrics; labels encode host attributes (e.g., `os="linux"`, `env="prod"`).
   - PromQL alerting rules apply to sets of series filtered by labels.
 - **Custom script monitoring:**
-  - Scripts expose metrics via custom exporters, or write to files interpreted by textfile collectors.[cite:113][cite:117]
+  - Scripts expose metrics via custom exporters, or write to files interpreted by textfile collectors.
   - Alerts are written as PromQL rules on those metrics.
 - **Log monitoring:**
-  - Prometheus does not tail logs; a separate system (e.g., Loki or ELK) is required.[cite:113][cite:117]
+  - Prometheus does not tail logs; a separate system (e.g., Loki or ELK) is required.
   - Alerts can be raised in that system or via metrics derived from logs.
 
 To replicate the current BHOM-style policy model (38k+ policies, 200+ changes/month), a separate **policy management layer** must be built:
@@ -207,8 +207,8 @@ This is feasible but requires significant engineering effort and ongoing ownersh
 Prometheus is natively aligned with Kubernetes:
 
 - **Kubernetes monitoring:**
-  - kube-prometheus-stack Helm chart installs Prometheus, Alertmanager, exporters, and Grafana with K8s service discovery out of the box.[cite:153][cite:158][cite:163]
-  - kube-state-metrics exposes Kubernetes object state; node and cAdvisor metrics cover node and container resources.[cite:158][cite:163]
+  - kube-prometheus-stack Helm chart installs Prometheus, Alertmanager, exporters, and Grafana with K8s service discovery out of the box.
+  - kube-state-metrics exposes Kubernetes object state; node and cAdvisor metrics cover node and container resources.
 - **Containerizing the monitoring stack:**
   - All components (Prometheus, Alertmanager, Grafana, long-term store) can be run in containers on internal K8s clusters.
 
@@ -231,15 +231,15 @@ Prometheus can be operated under a strict patch cycle, but the larger number of 
 
 | Dimension | BHOM (Helix Ops Mgmt) | Prometheus stack | Zabbix |
 | --- | --- | --- | --- |
-| Primary model | PATROL agents + KMs + monitor policies from BHOM console.[cite:149][cite:154][cite:155] | Metrics + alert rules; pull-based scraping with TSDB; configs as YAML/files.[cite:41][cite:113][cite:127] | Agents + templates + items + triggers; central server + proxies.[cite:39][cite:54][cite:103] |
-| Policy abstraction | Strong: monitor policies with precedence, pushed to PATROL agents from UI.[cite:149][cite:160] | None natively; policies must be implemented as rule/config management on top.[cite:113][cite:108] | Strong: templates, items, triggers, macros; full HTTP API; maps directly to policies.[cite:103][cite:107][cite:115] |
-| Log monitoring | PATROL Log KM, policies from TrueSight/BHOM consoles.[cite:155][cite:159] | Not built-in; logs handled by Loki/ELK or similar, Prometheus alerts only on derived metrics.[cite:113][cite:117] | Native log items (`log[]`, `logrt[]`, `log.count[]`) including rotation and regex support.[cite:106][cite:110][cite:114] |
-| Script monitoring | PATROL scripting KM, often outputting to logs.[cite:155][cite:159] | Via custom exporters or textfile collectors; requires significant integration work.[cite:113][cite:117] | Scripts write to logs or return values via agent items; alerts via log or numeric items.[cite:106][cite:110][cite:114] |
-| Custom policy volume | Tens of thousands of policies, but with Integration Service scaling limits.[cite:90][cite:97] | Scales in principle, but only if a custom policy/rules service is built and maintained.[cite:108][cite:104] | Designed for many objects; policies expressed as items/triggers/templates via API; suitable for 38k+ policies and high churn.[cite:103][cite:107][cite:115] |
-| K8s / containers | Helix ITOM has containerized deployments and K8s integrations.[cite:149][cite:156][cite:161] | Native K8s monitoring with kube-prometheus-stack and service discovery.[cite:153][cite:158][cite:163] | Official K8s monitoring via Helm chart and templates; can ingest Prometheus metrics.[cite:152][cite:157][cite:162] |
-| Scaling pattern | Integration Services per ~X agents; scaling via more IS and BHOM capacity.[cite:90][cite:97] | Shard Prometheus by targets/labels; use long-term store for big estates.[cite:77][cite:91][cite:96][cite:99] | Zabbix server + many proxies; proxies offload collection and buffer data; LTS releases with performance guidance.[cite:54][cite:56][cite:76][cite:82][cite:85] |
-| Hosting | SaaS/containerized backends, agents on Linux/Windows.[cite:149][cite:154][cite:161] | Linux-only components; can run on VMs or internal K8s.[cite:163][cite:127] | All components run on Unix-like OS; no Windows required.[cite:162][cite:126] |
-| Lifecycle / support | Commercial support from BMC; SaaS lifecycle controlled by vendor.[cite:149][cite:160] | CNCF-governed, large open community; multiple vendors offer commercial support.[cite:121][cite:125][cite:129][cite:163] | LTS releases with 5-year support windows; official commercial support and active community.[cite:118][cite:122][cite:126][cite:128] |
+| Primary model | PATROL agents + KMs + monitor policies from BHOM console. | Metrics + alert rules; pull-based scraping with TSDB; configs as YAML/files. | Agents + templates + items + triggers; central server + proxies. |
+| Policy abstraction | Strong: monitor policies with precedence, pushed to PATROL agents from UI. | None natively; policies must be implemented as rule/config management on top. | Strong: templates, items, triggers, macros; full HTTP API; maps directly to policies. |
+| Log monitoring | PATROL Log KM, policies from TrueSight/BHOM consoles. | Not built-in; logs handled by Loki/ELK or similar, Prometheus alerts only on derived metrics. | Native log items (`log[]`, `logrt[]`, `log.count[]`) including rotation and regex support. |
+| Script monitoring | PATROL scripting KM, often outputting to logs. | Via custom exporters or textfile collectors; requires significant integration work. | Scripts write to logs or return values via agent items; alerts via log or numeric items. |
+| Custom policy volume | Tens of thousands of policies, but with Integration Service scaling limits. | Scales in principle, but only if a custom policy/rules service is built and maintained. | Designed for many objects; policies expressed as items/triggers/templates via API; suitable for 38k+ policies and high churn. |
+| K8s / containers | Helix ITOM has containerized deployments and K8s integrations. | Native K8s monitoring with kube-prometheus-stack and service discovery. | Official K8s monitoring via Helm chart and templates; can ingest Prometheus metrics. |
+| Scaling pattern | Integration Services per ~X agents; scaling via more IS and BHOM capacity. | Shard Prometheus by targets/labels; use long-term store for big estates. | Zabbix server + many proxies; proxies offload collection and buffer data; LTS releases with performance guidance. |
+| Hosting | SaaS/containerized backends, agents on Linux/Windows. | Linux-only components; can run on VMs or internal K8s. | All components run on Unix-like OS; no Windows required. |
+| Lifecycle / support | Commercial support from BMC; SaaS lifecycle controlled by vendor. | CNCF-governed, large open community; multiple vendors offer commercial support. | LTS releases with 5-year support windows; official commercial support and active community. |
 | Fit for current operating model | Current baseline, but costly and encountering scaling limits. | Strong for K8s and SRE, but requires a new config-as-code and policy layer. | Very close to Helix/Patrol workflows, supports heavy log/script monitoring, aligns with Unix-only and future K8s. |
 
 ---
@@ -250,10 +250,10 @@ Given the requirements and operating model:
 
 - **Adopt Zabbix as the unified monitoring platform** for Unix, databases, and Kubernetes:
   - Strong policy abstraction via templates and macros.
-  - Native log and script monitoring, suitable for existing 700+ script-based hosts and thousands of log-based checks.[cite:106][cite:110][cite:114]
-  - Proven proxy-based scaling for large environments and clear NVPS-based sizing guidance.[cite:76][cite:82][cite:85]
-  - Unix-only hosting and an official Kubernetes integration path.[cite:162][cite:152][cite:157]
-  - Full HTTP API to support the current self-service portal model.[cite:103][cite:107]
+  - Native log and script monitoring, suitable for existing 700+ script-based hosts and thousands of log-based checks.
+  - Proven proxy-based scaling for large environments and clear NVPS-based sizing guidance.
+  - Unix-only hosting and an official Kubernetes integration path.
+  - Full HTTP API to support the current self-service portal model.
 - **Use Prometheus tactically** where it adds clear value:
   - For advanced SLO/SRE metrics on Kubernetes workloads.
   - As a metrics source that Zabbix can ingest where Prometheus exporters are already standard.
